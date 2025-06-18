@@ -1,26 +1,29 @@
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-def load_and_preprocess(filepath):
-    df = pd.read_csv(filepath, sep=';')
+def load_and_preprocess(csv_path):
+    df = pd.read_csv(csv_path, sep=";")
 
-    # Binary target: dropout = 1 if G3 < 10 and absences > 10
-    df['dropout'] = ((df['G3'] < 10) & (df['absences'] > 10)).astype(int)
 
-    # Drop columns with IDs/names (not useful for ML)
-    df = df.drop(['G1', 'G2', 'G3'], axis=1)
+    # Define target: dropout if total grades < 30
+    df['dropout'] = ((df['G1'] + df['G2'] + df['G3']) < 30).astype(int)
 
-    # Encode categorical features
-    le = LabelEncoder()
-    for col in df.select_dtypes(include='object').columns:
-        df[col] = le.fit_transform(df[col])
-
-    # Split features and target
-    X = df.drop('dropout', axis=1)
+    selected_features = ['sex', 'age', 'studytime', 'absences', 'G1', 'G2', 'internet']
+    X = df[selected_features]
     y = df['dropout']
 
-    # Train/test split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_encoded = pd.get_dummies(X)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_encoded)
+    full_feature_columns = X_encoded.columns
 
-    return X_train, X_test, y_train, y_test
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+    return X_train, X_test, y_train, y_test, full_feature_columns, scaler
+
+def preprocess_single_input(input_data, full_feature_columns, scaler):
+    input_df = pd.DataFrame([input_data])
+    input_encoded = pd.get_dummies(input_df)
+    input_encoded = input_encoded.reindex(columns=full_feature_columns, fill_value=0)
+    input_scaled = scaler.transform(input_encoded)
+    return input_scaled
